@@ -25,16 +25,25 @@ Options:
 #### Пример лога
 
 ```
-2024-09-12T01:15:09.794650Z  INFO ThreadId(01) L0: Listening on http://localhost:3000
-2024-09-12T01:19:28.459183Z TRACE ThreadId(02) L0::controllers: GET /order -> get_orders()
-2024-09-12T01:19:28.459298Z  INFO ThreadId(02) L0::controllers: GET /order -> get_orders() -> 200 OK
-2024-09-12T01:19:33.909354Z TRACE ThreadId(10) L0::controllers: POST /order -> add_order(payload)
-2024-09-12T01:19:33.909553Z  INFO ThreadId(10) L0::controllers: POST /order -> add_order(payload) -> 201 Created
-2024-09-12T01:19:39.457857Z TRACE ThreadId(10) L0::controllers: GET /order/ASDasd -> get_order(ASDasd)
-2024-09-12T01:19:39.458045Z ERROR ThreadId(10) L0::controllers: GET /order/ASDasd -> get_order(ASDasd) -> 404 Not Found
-2024-09-12T01:19:50.381117Z TRACE ThreadId(10) L0::controllers: GET /order -> get_orders()
-2024-09-12T01:19:50.381306Z  INFO ThreadId(10) L0::controllers: GET /order -> get_orders() -> 200 OK
-2024-09-12T01:19:55.302765Z  INFO ThreadId(10) L0::controllers: GET / -> index() -> 200 OK
-2024-09-12T01:20:08.370583Z TRACE ThreadId(10) L0::controllers: GET /order/b563feb7b2b84b6test -> get_order(b563feb7b2b84b6test)
-2024-09-12T01:20:08.370826Z  INFO ThreadId(10) L0::controllers: GET /order/b563feb7b2b84b6test -> get_order(b563feb7b2b84b6test) -> 200 OK
+2024-09-12T03:36:22.304278Z  INFO ThreadId(01) L0: Listening on http://localhost:3000
+2024-09-12T03:36:27.471893Z  INFO ThreadId(02) L0::controllers: GET / -> index() -> 200 OK
+2024-09-12T03:36:28.687600Z  INFO ThreadId(08) L0::controllers: GET / -> index() -> 200 OK
+2024-09-12T03:36:29.018279Z  INFO ThreadId(08) L0::controllers: GET / -> index() -> 200 OK
+2024-09-12T03:36:29.372861Z  INFO ThreadId(08) L0::controllers: GET / -> index() -> 200 OK
+2024-09-12T03:36:35.365846Z TRACE ThreadId(08) L0::controllers: GET /order -> get_orders()
+2024-09-12T03:36:35.366047Z  INFO ThreadId(08) L0::controllers: GET /order -> get_orders() -> 200 OK
+2024-09-12T03:36:36.300651Z TRACE ThreadId(08) L0::controllers: GET /order -> get_orders()
+2024-09-12T03:36:36.300823Z  INFO ThreadId(08) L0::controllers: GET /order -> get_orders() -> 200 OK
+2024-09-12T03:36:40.437483Z TRACE ThreadId(08) L0::controllers: POST /order -> add_order(payload)
+2024-09-12T03:36:40.437687Z  INFO ThreadId(08) L0::controllers: POST /order -> add_order(payload) -> 201 Created
+2024-09-12T03:36:45.695669Z TRACE ThreadId(02) L0::controllers: POST /order -> add_order(payload)
+2024-09-12T03:36:45.695864Z ERROR ThreadId(02) L0::controllers: POST /order -> add_order(payload) -> 409 Conflict [Order with order_uid="b563feb7b2b84b6test" already exists!]
+2024-09-12T03:36:50.248939Z TRACE ThreadId(02) L0::controllers: POST /order -> add_order(payload)
+2024-09-12T03:36:50.249143Z  INFO ThreadId(02) L0::controllers: POST /order -> add_order(payload) -> 201 Created
+2024-09-12T03:36:59.107522Z TRACE ThreadId(02) L0::controllers: GET /order -> get_orders()
+2024-09-12T03:36:59.107743Z  INFO ThreadId(02) L0::controllers: GET /order -> get_orders() -> 200 OK
+2024-09-12T03:37:05.258213Z TRACE ThreadId(02) L0::controllers: GET /order/b563feb7b2b84b6test -> get_order(b563feb7b2b84b6test)
+2024-09-12T03:37:05.258484Z  INFO ThreadId(02) L0::controllers: GET /order/b563feb7b2b84b6test -> get_order(b563feb7b2b84b6test) -> 200 OK
+2024-09-12T03:37:18.090899Z TRACE ThreadId(02) L0::controllers: GET /order/adsczews -> get_order(adsczews)
+2024-09-12T03:37:18.091087Z ERROR ThreadId(02) L0::controllers: GET /order/adsczews -> get_order(adsczews) -> 404 Not Found
 ```

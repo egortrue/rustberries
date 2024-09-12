@@ -72,12 +72,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Настройка контроллера
     let socket = format!("{address}:{port}");
     let listener = tokio::net::TcpListener::bind(&socket).await?;
-    let controller;
-    if enable_postgres {
-        controller = controllers::create_router(postgres_db);
+    let controller = if enable_postgres {
+        controllers::create_router(postgres_db)
     } else {
-        controller = controllers::create_router(local_db);
-    }
+        controllers::create_router(local_db)
+    };
 
     // Запуск
     log::info!("Listening on http://{socket}");
@@ -172,7 +171,7 @@ pub mod dto {
 pub mod controllers {
     use crate::dto::OrderListResponse;
     use crate::models::Order;
-    use crate::repository::OrderRepository;
+    use crate::repository::OrderRepo;
     use axum::extract::{Json, Path, State};
     use axum::http::{StatusCode, Uri};
     use axum::response::IntoResponse;
@@ -180,7 +179,7 @@ pub mod controllers {
     use axum::Router;
 
     /// Основной маппинг эндпоинтов
-    pub fn create_router(state: Box<impl OrderRepository>) -> Router {
+    pub fn create_router(state: Box<impl OrderRepo>) -> Router {
         Router::new()
             .route("/", get(index))
             .route("/order", get(get_orders).post(add_order))
@@ -196,14 +195,14 @@ pub mod controllers {
     }
 
     async fn get_orders(
-        State(state): State<Box<impl OrderRepository>>,
+        State(state): State<Box<impl OrderRepo>>,
         route_path: Uri,
     ) -> impl IntoResponse {
         log::trace!("GET {route_path} -> get_orders()");
         let orders = state.get_orders();
         let response = OrderListResponse {
             count: orders.len(),
-            orders: orders,
+            orders,
         };
 
         // TODO: Сделать с timeout. Не удается привязать handler к route
@@ -232,29 +231,26 @@ pub mod controllers {
     }
 
     async fn get_order(
-        State(state): State<Box<impl OrderRepository>>,
+        State(state): State<Box<impl OrderRepo>>,
         route_path: Uri,
         Path(order_uid): Path<String>,
     ) -> impl IntoResponse {
         log::trace!("GET {route_path} -> get_order({order_uid})");
         let status: StatusCode;
 
-        match state.get_order(&order_uid) {
-            Some(order) => {
-                status = StatusCode::OK;
-                log::info!("GET {route_path} -> get_order({order_uid}) -> {status}");
-                (status, Json(order)).into_response()
-            }
-            None => {
-                status = StatusCode::NOT_FOUND;
-                log::error!("GET {route_path} -> get_order({order_uid}) -> {status}",);
-                status.into_response()
-            }
+        if let Some(order) = state.get_order(&order_uid) {
+            status = StatusCode::OK;
+            log::info!("GET {route_path} -> get_order({order_uid}) -> {status}");
+            (status, Json(order)).into_response()
+        } else {
+            status = StatusCode::NOT_FOUND;
+            log::error!("GET {route_path} -> get_order({order_uid}) -> {status}",);
+            status.into_response()
         }
     }
 
     async fn add_order(
-        State(state): State<Box<impl OrderRepository>>,
+        State(state): State<Box<impl OrderRepo>>,
         route_path: Uri,
         Json(payload): Json<Order>,
     ) -> impl IntoResponse {
@@ -262,7 +258,7 @@ pub mod controllers {
         let status: StatusCode;
 
         match state.add_order(&payload) {
-            Ok(_) => {
+            Ok(()) => {
                 status = StatusCode::CREATED;
                 log::info!("POST {route_path} -> add_order(payload) -> {status}");
                 status.into_response()
@@ -283,15 +279,15 @@ pub mod repository {
     use crate::models::Order;
 
     // Основной интерфейс для работы контроллеров
-    pub trait OrderRepository: Clone + Send + Sync + 'static {
+    pub trait OrderRepo: Clone + Send + Sync + 'static {
         fn get_orders(&self) -> Vec<Order>;
-        fn get_order(&self, order_uid: &String) -> Option<Order>;
+        fn get_order(&self, order_uid: &str) -> Option<Order>;
         fn add_order(&self, order: &Order) -> Result<(), String>;
     }
 
     /// Реализует простейшее in-memory локальное хранилище в виде хеш-таблицы
     pub mod local {
-        use super::OrderRepository;
+        use super::OrderRepo;
         use crate::models::Order;
         use std::{
             collections::HashMap,
@@ -300,16 +296,16 @@ pub mod repository {
 
         pub type Db = Arc<RwLock<HashMap<String, Order>>>;
 
-        pub fn create() -> Box<impl OrderRepository> {
+        pub fn create() -> Box<impl OrderRepo> {
             Box::new(Db::default())
         }
 
-        impl OrderRepository for Db {
+        impl OrderRepo for Db {
             fn get_orders(&self) -> Vec<Order> {
                 self.read().unwrap().values().cloned().collect()
             }
 
-            fn get_order(&self, order_uid: &String) -> Option<Order> {
+            fn get_order(&self, order_uid: &str) -> Option<Order> {
                 self.read().unwrap().get(order_uid).cloned()
             }
 
@@ -331,7 +327,7 @@ pub mod repository {
 
     /// Реализует взаимодействие с удаленной БД `PostgreSQL`
     pub mod postgres {
-        use super::OrderRepository;
+        use super::OrderRepo;
         use crate::models::Order;
         use bb8::Pool;
         use bb8_postgres::PostgresConnectionManager;
@@ -342,7 +338,7 @@ pub mod repository {
 
         static POSTGRES: &str = "postgres://myuser:mypassword@localhost:5432/postgres";
 
-        pub async fn create() -> Result<Box<impl OrderRepository>, Box<dyn std::error::Error>> {
+        pub async fn create() -> Result<Box<impl OrderRepo>, Box<dyn std::error::Error>> {
             let manager = PostgresConnectionManager::new_from_stringlike(POSTGRES, NoTls).unwrap();
             let pool: Db = Pool::builder().build(manager).await.unwrap();
 
@@ -357,16 +353,18 @@ pub mod repository {
             Ok(Box::new(pool))
         }
 
-        impl OrderRepository for Db {
+        impl OrderRepo for Db {
             fn get_orders(&self) -> Vec<Order> {
                 todo!()
             }
 
-            fn get_order(&self, order_uid: &String) -> Option<Order> {
+            fn get_order(&self, order_uid: &str) -> Option<Order> {
+                log::error!("not implemented {}", order_uid);
                 todo!()
             }
 
             fn add_order(&self, order: &Order) -> Result<(), String> {
+                log::error!("not implemented {}", order.order_uid);
                 todo!()
             }
         }
