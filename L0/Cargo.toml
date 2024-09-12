@@ -1,0 +1,23 @@
+[package]
+name = "L0"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = "0.8.5"
+axum = { version = "0.7.5", features = ["matched-path", "tokio", "tracing"] }
+serde = { version = "1.0.209", features = ["derive"] }
+serde_json = "1.0.128"
+tokio = { version = "1.40.0", features = ["full"] }
+log = "0.4.22"
+tracing = "0.1.40"
+tracing-log = "0.2.0"
+tracing-subscriber = "0.3.18"
+tracing-appender = "0.2.3"
+tokio-postgres = "0.7.11"
+refinery = { version = "0.8.14", features = ["tokio-postgres"] }
+uuid = { version = "1.10.0", features = ["serde", "v4"] }
+tower-http = { version = "0.5.2", features = ["trace"] }
+bb8 = "0.8.5"
+bb8-postgres = "0.8.1"
+clap = { version = "4.5.17", features = ["derive"] }
