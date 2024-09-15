@@ -6,20 +6,37 @@
 - `/migrations` - SQL-скрипты для проведения миграции БД с помощью https://crates.io/crates/refinery
 
 #### Полезные команды
-- чекер кода: `cargo clippy -- -W clippy::pedantic`
-- hot-reload: `cargo watch -c -d 0 -x run`
+- проверка: `cargo clippy -- -W clippy::pedantic`
+- запуск: `cargo watch -c -d 0 -x run`
+- запуск с PG: `cargo watch -c -d 0 -x "run -- --pg-enable --pg-user myuser --pg-pass mypassword --pg-host localhost --pg-port 5432 --pg-name postgres"`
 
 #### Параметры запуска
 ```
-Usage: L0.exe [ADDRESS] [PORT] [ENABLE_POSTGRES]
-
-Arguments:
-  [ADDRESS]
-  [PORT]
-  [ENABLE_POSTGRES]  [possible values: true, false]
+$ .\target\debug\L0.exe -h
+Usage: L0.exe [OPTIONS]
 
 Options:
-  -h, --help  Print help
+  -a, --address <ADDRESS>        [default: localhost]
+  -p, --port <PORT>              [default: 3000]
+      --pg-enable
+      --pg-user <PG_USER>
+      --pg-pass <PG_PASS>
+      --pg-host <PG_HOST>
+      --pg-port <PG_PORT>
+      --pg-name <PG_NAME>
+      --pg-migrate <PG_MIGRATE>
+  -h, --help                     Print help
+```
+
+#### Пример неверных параметров запуска
+```
+$ .\target\debug\L0.exe --pg-enable
+error: the following required arguments were not provided:
+  <--pg-user <PG_USER>|--pg-pass <PG_PASS>|--pg-host <PG_HOST>|--pg-port <PG_PORT>|--pg-name <PG_NAME>>
+
+Usage: L0.exe --pg-enable <--pg-user <PG_USER>|--pg-pass <PG_PASS>|--pg-host <PG_HOST>|--pg-port <PG_PORT>|--pg-name <PG_NAME>>  
+
+For more information, try '--help'.
 ```
 
 #### Пример лога

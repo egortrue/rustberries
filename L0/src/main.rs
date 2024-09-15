@@ -3,6 +3,7 @@
 КОМАНДЫ:
 - проверка: cargo clippy -- -W clippy::pedantic
 - запуск: cargo watch -c -d 0 -x run
+- запуск с PG: cargo watch -c -d 0 -x "run -- --pg-enable --pg-user myuser --pg-pass mypassword --pg-host localhost --pg-port 5432 --pg-name postgres"
 
 КОММЕНТАРИИ:
 - Все решение в одном файле - здесь
@@ -21,7 +22,7 @@
 [ ] Опционально: Rust: unit-тесты
 [ ] Опционально: Rust: стресс-тесты
 [ ] Опционально: бенчмаркинг
-[ ] Опционально: обработка аргументов командной строки (clap)
+[X] Опционально: обработка аргументов командной строки (clap)
 [ ] Опционально: БД/транзакции
 [ ] Опционально: Оптимизация кода, WRK и Vegeta
 
@@ -46,18 +47,31 @@ use clap::Parser;
 
 #[derive(clap::Parser, Debug)]
 struct Args {
+    #[arg(short, long, default_value = "localhost")]
     address: Option<String>,
+    #[arg(short, long, default_value = "3000")]
     port: Option<String>,
-    enable_postgres: Option<bool>,
+    #[arg(long, requires = "pg")]
+    pg_enable: bool,
+    #[arg(long, group = "pg")]
+    pg_user: Option<String>,
+    #[arg(long, group = "pg")]
+    pg_pass: Option<String>,
+    #[arg(long, group = "pg")]
+    pg_host: Option<String>,
+    #[arg(long, group = "pg")]
+    pg_port: Option<String>,
+    #[arg(long, group = "pg")]
+    pg_name: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Парсинг агрументов командой строки
     let args = Args::parse();
-    let address = args.address.unwrap_or("localhost".to_string());
-    let port = args.port.unwrap_or("3000".to_string());
-    let enable_postgres = args.enable_postgres.unwrap_or(false);
+    let address = args.address.unwrap();
+    let port = args.port.unwrap();
+    let pg_enable = args.pg_enable;
 
     // Настройка логирования
     tracing_subscriber::fmt()
@@ -65,21 +79,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_thread_ids(true)
         .init();
 
-    // Настройка хранилища
-    let local_db = repository::local::create();
-    let postgres_db = repository::postgres::create().await.unwrap();
-
-    // Настройка контроллера
+    // Настройка сокета
     let socket = format!("{address}:{port}");
     let listener = tokio::net::TcpListener::bind(&socket).await?;
-    let controller = if enable_postgres {
-        controllers::create_router(postgres_db)
+
+    // Настройка контроллера
+    let controller = if !pg_enable {
+        let state = repository::local::create();
+        controllers::create_router(state)
     } else {
-        controllers::create_router(local_db)
+        let user = args.pg_user.expect("option '--pg-user' not defined");
+        let pass = args.pg_pass.expect("option '--pg-pass' not defined");
+        let host = args.pg_host.expect("option '--pg-host' not defined");
+        let port = args.pg_port.expect("option '--pg-port' not defined");
+        let name = args.pg_name.expect("option '--pg-name' not defined");
+
+        let state = repository::postgres::create(&user, &pass, &host, &port, &name);
+        controllers::create_router(state)
     };
 
     // Запуск
-    log::info!("Listening on http://{socket}");
+    log::info!("Listening on http://{}", &socket);
     axum::serve(listener, controller).await?;
 
     Ok(())
@@ -329,28 +349,32 @@ pub mod repository {
     pub mod postgres {
         use super::OrderRepo;
         use crate::models::Order;
-        use bb8::Pool;
+        use bb8::{ManageConnection, Pool};
         use bb8_postgres::PostgresConnectionManager;
-        use tokio_postgres::NoTls;
+        use refinery::Migration;
+        use tokio_postgres::{Connection, NoTls};
         refinery::embed_migrations!("migrations");
 
         pub type Db = Pool<PostgresConnectionManager<NoTls>>;
 
-        static POSTGRES: &str = "postgres://myuser:mypassword@localhost:5432/postgres";
+        // Провести миграцию БД (создание таблиц)
+        // pub async fn migrate(connection: ) {
+        //     migrations::runner().run_async(&mut connection).await;
+        // }
 
-        pub async fn create() -> Result<Box<impl OrderRepo>, Box<dyn std::error::Error>> {
-            let manager = PostgresConnectionManager::new_from_stringlike(POSTGRES, NoTls).unwrap();
-            let pool: Db = Pool::builder().build(manager).await.unwrap();
-
-            // TODO: Провести миграцию БД при подключении
-
-            // tokio::spawn(async move {
-            //     let mut conn: &tokio_postgres::Client =
-            //         pool.get().await.unwrap().client().clone();
-            //     migrations::runner().run_async(conn);
-            // });
-
-            Ok(Box::new(pool))
+        pub fn create(
+            user: &str,
+            pass: &str,
+            host: &str,
+            port: &str,
+            name: &str,
+        ) -> Box<impl OrderRepo> {
+            let connection_string = format!("postgres://{user}:{pass}@{host}:{port}/{name}");
+            let manager =
+                PostgresConnectionManager::new_from_stringlike(connection_string, NoTls).unwrap();
+            let pool = futures::executor::block_on(async { Pool::builder().build(manager).await })
+                .unwrap();
+            Box::new(pool)
         }
 
         impl OrderRepo for Db {
