@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 axum = { version = "0.7.5", features = ["matched-path", "tokio", "tracing"] }
-serde = { version = "1.0.209", features = ["derive"] }
+serde = { version = "1.0.209", features = ["derive", "rc"] }
 serde_json = "1.0.128"
 tokio = { version = "1.40.0", features = ["full"] }
 log = "0.4.22"
