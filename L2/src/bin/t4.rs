@@ -75,18 +75,29 @@ fn find_anagrams<'a>(words: &[&'a str]) -> HashMap<&'a str, Vec<&'a str>> {
 }
 
 fn main() {
-    let input_arr = ["abc", "cab", "cbb", "aac", "aca"];
+    let input_arr = [
+        "пятак",
+        "пятка",
+        "тяпка",
+        "листок",
+        "слиток",
+        "столик",
+        "trash",
+        "",
+    ];
     let groups = find_anagrams(&input_arr);
     println!("{groups:#?}");
 
     /* Output
 
     {
-        "aac": [
-            "aca",
+        "пятак": [
+            "пятка",
+            "тяпка",
         ],
-        "abc": [
-            "cab",
+        "листок": [
+            "слиток",
+            "столик",
         ],
     }
 
