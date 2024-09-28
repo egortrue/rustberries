@@ -1,0 +1,14 @@
+
+az 1T
+bc 88 
+z -13.1 ABC    
+c -10 ZXC    
+x
+ca 11.3 JAN
+abz 4P FEB
+z 124 FEB
+d 2 MAR
+c -31 JUN
+ac 34100G JUL
+AUG
+x 1Q NOV
