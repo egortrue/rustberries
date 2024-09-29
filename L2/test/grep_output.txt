@@ -1,0 +1,30 @@
+     
+     Running `target\debug\t5.exe -n --regexp amet --file test/grep_input.txt`
+3 Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+4 Pellentesque sit amet quam massa.
+6 Fusce malesuada sit amet mauris id ornare.
+20 Pellentesque sit amet quam eget dapibus.   
+
+
+     
+     Running `target\debug\t5.exe -n -i -C 1 --regexp pellentesque --file test/grep_input.txt`
+3 Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+4 Pellentesque sit amet quam massa.
+5 Phasellus commodo mi odio, nec viverra massa eleifend id.
+19 Donec felis turpis, dapibus eget purus a, suscipit tempus odio.
+20 Pellentesque sit amet quam eget dapibus.
+21 Mauris venenatis urna ac nisi fringilla rhoncus. Etiam eu finibus sem.
+
+
+
+     Running `target\debug\t5.exe -n -i -C 1 --regexp \d{12} --file test/grep_input.txt`
+8
+9 123412341235123
+10 123123123
+11 123412342352345
+12
+17 Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.
+18 Curabitur elementum 123412342352345 ut arcu non mattis.
+19 Donec felis turpis, dapibus eget purus a, suscipit tempus odio.
+23
+24 123412342352345
