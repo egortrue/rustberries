@@ -1,0 +1,91 @@
+
+(L2.8) $ help
+Available commands:
+  help             - Print this helper
+  pwd              - Print current working directory
+  ps               - Print running processes
+  echo <argument>  - Display a line of text
+  cd <argument>    - Change working directory
+  kill <argument>  - Kill a process
+  quit             - Exit the current shell
+
+(L2.8) $ asdfasdcvaserf
+Wrong command: "asdfasdcvaserf"
+Available commands:
+  help             - Print this helper
+  pwd              - Print current working directory
+  ps               - Print running processes
+  echo <argument>  - Display a line of text
+  cd <argument>    - Change working directory
+  kill <argument>  - Kill a process
+  quit             - Exit the current shell
+
+(L2.8) $ pwd
+C:\Users\User\Documents\Code\rustberries\L2
+
+(L2.8) $ ps
+
+Image Name                     PID Session Name        Session#    Mem Usage
+========================= ======== ================ =========== ============
+System Idle Process              0 Services                   0          8 K
+System                           4 Services                   0      5�412 K
+...
+svchost.exe                 153692 Services                   0     10�932 K
+svchost.exe                 161956 Services                   0      7�624 K
+chrome.exe                  166728 Console                    1     29�660 K
+SearchProtocolHost.exe      162216 Services                   0     13�184 K
+cargo.exe                   167368 Console                    1      9�152 K
+cargo.exe                   167352 Console                    1     16�460 K
+t8.exe                      167768 Console                    1      3�736 K
+
+
+(L2.8) $ echo hello, world
+hello, world
+
+(L2.8) $ cd hello, world
+The system cannot find the file specified. (os error 2)
+
+(L2.8) $ cd test
+
+
+(L2.8) $ pwd
+C:\Users\User\Documents\Code\rustberries\L2\test
+
+(L2.8) $ cd ..
+
+
+(L2.8) $ pwd
+C:\Users\User\Documents\Code\rustberries\L2
+
+(L2.8) $ kill 0
+ERROR: The process with PID 0 could not be terminated.
+Reason: This is critical system process. Taskkill cannot end this process.
+
+
+(L2.8) $ kill 167768
+error: process didn't exit successfully: `target\debug\t8.exe` (exit code: 1)
+
+(L2.8) $ echo test | cd -
+
+
+(L2.8) $ pwd
+C:\Users\User\Documents\Code\rustberries\L2\test
+
+(L2.8) $ echo ../../../ | cd - | pwd
+C:\Users\User\Documents\Code
+
+(L2.8) $ echo ../../../ | cd - | pwd | echo -
+C:\Users
+
+(L2.8) $ echo asdf | cd asdf | aefcasxcv
+Wrong command: "aefcasxcv"
+Available commands:
+  help             - Print this helper
+  pwd              - Print current working directory
+  ps               - Print running processes
+  echo <argument>  - Display a line of text
+  cd <argument>    - Change working directory
+  kill <argument>  - Kill a process
+  quit             - Exit the current shell
+
+(L2.8) $ quit
