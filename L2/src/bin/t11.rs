@@ -46,17 +46,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Код HTTP сервера
 mod controller {
+    use crate::domain::Event;
+    use crate::dto::{response, QueryDate, RequestUpdateEvent};
     use crate::repository::CalendarRepository;
-    use crate::{domain::Event, dto::UpdateEvent};
+    use axum::extract::{Query, Request};
+    use axum::middleware::{self, Next};
     use axum::{
         extract::State,
+        http::StatusCode,
         response::IntoResponse,
         routing::{get, post},
         Json, Router,
     };
-    use reqwest::StatusCode;
+    use chrono::{Days, Months};
+    use log::{error, info};
     use serde_json::json;
     use std::sync::Arc;
     use uuid::Uuid;
@@ -68,84 +74,109 @@ mod controller {
             .route("/create_event", post(create_event))
             .route("/update_event", post(update_event))
             .route("/delete_event", post(delete_event))
-            .route("/events_for_day", post(events_for_day))
-            .route("/events_for_week", post(events_for_week))
-            .route("/events_for_month", post(events_for_month))
+            .route("/events_for_day", get(events_for_day))
+            .route("/events_for_week", get(events_for_week))
+            .route("/events_for_month", get(events_for_month))
             .with_state(state)
+            .layer(middleware::from_fn(logger))
     }
 
-    pub async fn index() -> impl IntoResponse {
+    /// Middleware - логирование
+    async fn logger(request: Request, next: Next) -> impl IntoResponse {
+        let method = request.method().clone();
+        let uri = request.uri().clone();
+        let response = next.run(request).await;
+        let status = response.status();
+        match status {
+            StatusCode::OK => info!("{method} {uri} -> {status}"),
+            _ => error!("{method} {uri} -> {status}"),
+        };
+
+        response
+    }
+
+    async fn index() -> impl IntoResponse {
         "Hello, L2.11!".into_response()
     }
 
-    pub async fn create_event(
+    async fn create_event(
         State(state): State<Arc<dyn CalendarRepository>>,
         Json(payload): Json<Event>,
     ) -> impl IntoResponse {
         match state.create_event(payload).await {
-            Ok(_) => {
-                let content = json!({"result": "success"});
-                return (StatusCode::OK, Json(content));
-            }
-            Err(e) => {
-                let content = json!({"error": e});
-                return (StatusCode::SERVICE_UNAVAILABLE, Json(content));
-            }
+            Ok(_) => (StatusCode::OK, response(Ok("successfully created"))),
+            Err(e) => (StatusCode::SERVICE_UNAVAILABLE, response(Err(&e))),
         }
     }
 
-    pub async fn update_event(
+    async fn update_event(
         State(state): State<Arc<dyn CalendarRepository>>,
-        Json(payload): Json<UpdateEvent>,
+        Json(payload): Json<RequestUpdateEvent>,
     ) -> impl IntoResponse {
         match state.update_event(&payload.id, &payload.data).await {
-            Ok(_) => {
-                let content = json!({"result": "success"});
-                return (StatusCode::OK, Json(content));
-            }
-            Err(e) => {
-                let content = json!({"error": e});
-                return (StatusCode::SERVICE_UNAVAILABLE, Json(content));
-            }
+            Ok(_) => (StatusCode::OK, response(Ok("successfully updated"))),
+            Err(e) => (StatusCode::SERVICE_UNAVAILABLE, response(Err(&e))),
         }
     }
 
-    pub async fn delete_event(
+    async fn delete_event(
         State(state): State<Arc<dyn CalendarRepository>>,
         Json(payload): Json<Uuid>,
     ) -> impl IntoResponse {
         match state.delete_event(&payload).await {
-            Ok(_) => {
-                let content = json!({"result": "success"});
-                return (StatusCode::OK, Json(content));
-            }
-            Err(e) => {
-                let content = json!({"error": e});
-                return (StatusCode::SERVICE_UNAVAILABLE, Json(content));
-            }
+            Ok(_) => (StatusCode::OK, response(Ok("successfully deleted"))),
+            Err(e) => (StatusCode::SERVICE_UNAVAILABLE, response(Err(&e))),
         }
     }
 
-    pub async fn events_for_day(
+    async fn events_for_day(
         State(state): State<Arc<dyn CalendarRepository>>,
+        Query(query): Query<QueryDate>,
     ) -> impl IntoResponse {
+        let date = match query.create_for_day() {
+            Ok(date) => date,
+            Err(e) => return (StatusCode::BAD_REQUEST, response(Err(&e))),
+        };
+
+        let events = state.find_events(&date, &date).await;
+        return (StatusCode::OK, Json(json!( { "success": events } )));
     }
 
-    pub async fn events_for_week(
+    async fn events_for_week(
         State(state): State<Arc<dyn CalendarRepository>>,
+        Query(query): Query<QueryDate>,
     ) -> impl IntoResponse {
+        let start = match query.create_for_week() {
+            Ok(date) => date,
+            Err(e) => return (StatusCode::BAD_REQUEST, response(Err(&e))),
+        };
+        let end = start + Days::new(7);
+
+        let events = state.find_events(&start, &end).await;
+        return (StatusCode::OK, Json(json!( { "success": events } )));
     }
 
-    pub async fn events_for_month(
+    async fn events_for_month(
         State(state): State<Arc<dyn CalendarRepository>>,
+        Query(query): Query<QueryDate>,
     ) -> impl IntoResponse {
+        let start = match query.create_for_month() {
+            Ok(date) => date,
+            Err(e) => return (StatusCode::BAD_REQUEST, response(Err(&e))),
+        };
+        let end = start + Months::new(1);
+
+        let events = state.find_events(&start, &end).await;
+        return (StatusCode::OK, Json(json!( { "success": events } )));
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Работа с хранилищем данных.
 /// Прослойка между кодом HTTP сервера и бизнес логикой
 mod repository {
     use crate::domain::Event;
+    use chrono::NaiveDate;
     use uuid::Uuid;
 
     /// Универсальный интерфейс для работы контроллеров
@@ -154,12 +185,14 @@ mod repository {
         async fn create_event(&self, event: Event) -> Result<(), String>;
         async fn update_event(&self, id: &Uuid, other: &Event) -> Result<(), String>;
         async fn delete_event(&self, id: &Uuid) -> Result<(), String>;
+        async fn find_events(&self, start: &NaiveDate, end: &NaiveDate) -> Vec<Event>;
     }
 
     /// Реализация взаимодействия с хранилищем через Arc + RwLock
     pub mod default {
         use super::CalendarRepository;
         use crate::domain::{Calendar, Event};
+        use chrono::NaiveDate;
         use std::sync::Arc;
         use tokio::sync::RwLock;
         use uuid::Uuid;
@@ -183,27 +216,90 @@ mod repository {
             async fn delete_event(&self, id: &Uuid) -> Result<(), String> {
                 self.write().await.delete_event(id)
             }
+
+            async fn find_events(&self, start: &NaiveDate, end: &NaiveDate) -> Vec<Event> {
+                self.read().await.find_events(start, end)
+            }
         }
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Data Transfer Objects.
 /// Вспомогательные объекты и функции
 mod dto {
     use crate::domain::Event;
-    use serde::{Deserialize, Serialize};
+    use axum::Json;
+    use chrono::{NaiveDate, Weekday};
+    use serde::Deserialize;
+    use serde_json::json;
     use uuid::Uuid;
 
-    #[derive(Serialize, Deserialize)]
-    pub struct UpdateEvent {
+    #[derive(Deserialize)]
+    pub struct RequestUpdateEvent {
         pub id: Uuid,
         pub data: Event,
     }
+
+    #[derive(Deserialize)]
+    pub struct QueryDate {
+        pub year: i32,
+        pub month: Option<u32>,
+        pub week: Option<u32>,
+        pub day: Option<u32>,
+    }
+
+    impl QueryDate {
+        pub fn create_for_day(&self) -> Result<NaiveDate, &str> {
+            let day = match self.day {
+                Some(day) => day,
+                None => return Err("no day were provided"),
+            };
+
+            let date = match self.month {
+                Some(month) => NaiveDate::from_ymd_opt(self.year, month, day),
+                None => NaiveDate::from_yo_opt(self.year, day),
+            };
+
+            match date {
+                Some(date) => return Ok(date),
+                None => Err("invalid date"),
+            }
+        }
+
+        pub fn create_for_week(&self) -> Result<NaiveDate, &str> {
+            match self.week {
+                Some(week) => match NaiveDate::from_isoywd_opt(self.year, week, Weekday::Mon) {
+                    Some(date) => Ok(date),
+                    None => Err("invalid date"),
+                },
+                None => Err("no week were provided"),
+            }
+        }
+
+        pub fn create_for_month(&self) -> Result<NaiveDate, &str> {
+            match self.month {
+                Some(month) => match NaiveDate::from_ymd_opt(self.year, month, 1) {
+                    Some(date) => Ok(date),
+                    None => Err("invalid date"),
+                },
+                None => Err("no month were provided"),
+            }
+        }
+    }
+
+    pub fn response(message: Result<&str, &str>) -> Json<serde_json::Value> {
+        match message {
+            Ok(message) => Json(json!( { "success": message } )),
+            Err(message) => Json(json!( { "error": message } )),
+        }
+    }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Бизнес логика
 mod domain {
-    use chrono::{DateTime, Utc};
+    use chrono::NaiveDate;
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
     use uuid::Uuid;
@@ -212,7 +308,7 @@ mod domain {
     pub struct Event {
         title: String,
         description: String,
-        date: DateTime<Utc>,
+        date: NaiveDate,
     }
 
     #[derive(Default)]
@@ -250,8 +346,14 @@ mod domain {
             }
         }
 
-        pub fn find_events(&mut self, start: &DateTime<Utc>, end: &DateTime<Utc>) -> Vec<&Event> {
-            vec![]
+        pub fn find_events(&self, start: &NaiveDate, end: &NaiveDate) -> Vec<Event> {
+            let mut result = vec![];
+            for (_, event) in self.events.iter() {
+                if start <= &event.date && &event.date <= end {
+                    result.push(event.clone());
+                }
+            }
+            result
         }
     }
 }
