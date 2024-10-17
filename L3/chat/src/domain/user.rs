@@ -1,30 +1,10 @@
-// Элементы бизнес логики
-
-use std::{
-    collections::LinkedList,
-    sync::{Arc, Weak},
-};
-use tokio::sync::broadcast;
-use uuid::Uuid;
+use super::chat::Chat;
+use std::sync::{Arc, Weak};
 
 pub struct User {
     name: String,
     platform: String, // Текущая платформа (клиент) пользователя - например, cli, gui или web
     chat: Weak<Chat>,
-}
-
-pub struct Chat {
-    name: String,
-    password: Option<String>,
-    messages: LinkedList<Message>,
-    users: LinkedList<Weak<User>>,
-    channel: (broadcast::Sender<Message>, broadcast::Receiver<Message>),
-}
-
-#[derive(Clone)]
-pub struct Message {
-    pub content: String,
-    pub author: Uuid,
 }
 
 impl User {
@@ -55,19 +35,17 @@ impl User {
     }
 }
 
-impl Chat {
-    fn new(name: String, password: Option<String>) -> Self {
-        Self {
-            name: name,
-            password: password,
-            messages: LinkedList::new(),
-            users: LinkedList::new(),
-            channel: broadcast::channel(100),
-        }
+impl PartialEq for User {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.platform == other.platform
     }
+}
 
-    fn join(&mut self, user: &Arc<User>) -> Result<(), String> {
-        self.users.push_back(Arc::downgrade(user));
-        Ok(())
+impl Eq for User {}
+
+impl std::hash::Hash for User {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.platform.hash(state);
     }
 }
