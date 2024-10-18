@@ -1,21 +1,30 @@
 use super::message::Message;
-use std::collections::LinkedList;
+use std::{
+    collections::LinkedList,
+    sync::{atomic::AtomicUsize, Arc},
+};
 use tokio::sync::broadcast;
 
 pub struct Chat {
     pub name: String,
-    password: Option<String>,
-    messages: LinkedList<Message>,
-    channel: (broadcast::Sender<Message>, broadcast::Receiver<Message>),
+    pub users: AtomicUsize,
+    pub password: Option<String>,
+    pub messages: LinkedList<Message>,
+    pub channel: (
+        broadcast::Sender<Message>,
+        Arc<broadcast::Receiver<Message>>,
+    ),
 }
 
 impl Chat {
     pub fn new(name: String, password: Option<String>) -> Self {
+        let (tx, rx) = broadcast::channel(100);
         Self {
             name,
             password,
+            users: AtomicUsize::new(0),
             messages: LinkedList::new(),
-            channel: broadcast::channel(100),
+            channel: (tx, Arc::new(rx)),
         }
     }
 }

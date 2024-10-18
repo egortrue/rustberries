@@ -2,7 +2,6 @@
 
 mod controller;
 mod domain;
-mod dto;
 mod repository;
 
 use repository::ChatRepository;
@@ -27,7 +26,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Настройка контроллера
     let socket = format!("{address}:{port}");
     let listener = tokio::net::TcpListener::bind(&socket).await?;
-    let controller = controller::create_router(Arc::clone(&repository));
+    let controller = controller::route::create_router(Arc::clone(&repository));
 
     // Запуск
     axum::serve(listener, controller).await?;
