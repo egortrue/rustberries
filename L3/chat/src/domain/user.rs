@@ -1,51 +1,40 @@
-use super::chat::Chat;
-use std::sync::{Arc, Weak};
+use super::message::Message;
+use tokio::sync::broadcast;
 
 pub struct User {
     name: String,
-    platform: String, // Текущая платформа (клиент) пользователя - например, cli, gui или web
-    chat: Weak<Chat>,
+    channel: Option<broadcast::Receiver<Message>>,
 }
 
 impl User {
-    fn new(name: String) -> Self {
+    pub fn new(name: String) -> Self {
         Self {
             name: name,
-            platform: String::new(),
-            chat: Weak::new(),
+            channel: None,
         }
     }
 
-    fn join(&mut self, chat: &Arc<Chat>) -> Result<(), String> {
-        if let Some(cur_chat) = self.chat.upgrade() {
-            return Err(format!("Already connected to chat: \"{}\"", cur_chat.name));
-        }
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
 
-        self.chat = Arc::downgrade(chat);
+    pub fn is_subscribed(&self) -> bool {
+        self.channel.is_some()
+    }
+
+    pub fn subscribe(&mut self, receiver: broadcast::Receiver<Message>) -> Result<(), &str> {
+        if self.channel.is_some() {
+            return Err("User already subscribed!");
+        }
+        self.channel = Some(receiver);
         Ok(())
     }
 
-    fn leave(&mut self) -> Result<(), String> {
-        if let None = self.chat.upgrade() {
-            return Err(format!("Not connected to a chat"));
+    pub fn unsubscribe(&mut self) -> Result<(), &str> {
+        if self.channel.is_none() {
+            return Err("User already unsubscribed!");
         }
-
-        self.chat = Weak::new();
+        self.channel = None;
         Ok(())
-    }
-}
-
-impl PartialEq for User {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.platform == other.platform
-    }
-}
-
-impl Eq for User {}
-
-impl std::hash::Hash for User {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
-        self.platform.hash(state);
     }
 }

@@ -1,44 +1,57 @@
 use super::message::Message;
-use std::{
-    collections::LinkedList,
-    sync::{atomic::AtomicUsize, Arc},
-};
-use tokio::sync::broadcast;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use tokio::sync::broadcast::{self, Receiver, Sender};
 
 pub struct Chat {
-    pub name: String,
-    pub users: AtomicUsize,
-    pub password: Option<String>,
-    pub messages: LinkedList<Message>,
-    pub channel: (
-        broadcast::Sender<Message>,
-        Arc<broadcast::Receiver<Message>>,
-    ),
+    name: String,
+    password: Option<String>,
+    users: AtomicUsize, // https://doc.rust-lang.org/stable/nomicon/atomics.html#relaxed
+    channel: Sender<Message>,
 }
 
 impl Chat {
     pub fn new(name: String, password: Option<String>) -> Self {
-        let (tx, rx) = broadcast::channel(100);
+        let (tx, _) = broadcast::channel(100);
         Self {
             name,
             password,
             users: AtomicUsize::new(0),
-            messages: LinkedList::new(),
-            channel: (tx, Arc::new(rx)),
+            channel: tx,
         }
     }
-}
 
-impl PartialEq for Chat {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
-}
 
-impl Eq for Chat {}
+    pub fn is_private(&self) -> bool {
+        self.password.is_some()
+    }
 
-impl std::hash::Hash for Chat {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
+    pub fn users(&self) -> usize {
+        self.users.load(Ordering::Relaxed)
+    }
+
+    pub fn subscribe(&self, password: Option<String>) -> Result<Receiver<Message>, &str> {
+        if self.password.is_some() && self.password != password {
+            return Err("Wrong password for subscribe");
+        }
+        self.users.fetch_add(1, Ordering::Relaxed);
+        Ok(self.channel.subscribe())
+    }
+
+    pub fn unsubscribe(&self) -> Result<(), &str> {
+        if self.users.load(Ordering::Acquire) == 0 {
+            return Err("No users to unsubscribe");
+        }
+        self.users.fetch_sub(1, Ordering::Release);
+        Ok(())
+    }
+
+    pub fn send(&self, message: &Message) -> Result<(), &str> {
+        match self.channel.send(message.clone()) {
+            Ok(_) => todo!(),
+            Err(_) => todo!(),
+        }
     }
 }

@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .init();
 
     // Настройка хранилища
-    let repository: Arc<dyn ChatRepository> = Arc::new(repository::local::State::default());
+    let repository: Arc<dyn ChatRepository> = Arc::new(repository::dashmap::State::default());
 
     // Настройка контроллера
     let socket = format!("{address}:{port}");

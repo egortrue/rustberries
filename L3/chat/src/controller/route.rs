@@ -1,5 +1,9 @@
 // Обработчики HTTP-запросов
-use crate::controller::dto::{RequestChatCreate, RequestChatJoin, ResponseChatInfo};
+
+use crate::controller::dto::{
+    RequestChatCreate, RequestChatJoin, RequestChatLeave, RequestUserLogin, ResponseChatInfo,
+    ResponseUserLogin,
+};
 use crate::repository::ChatRepository;
 use axum::{
     extract::{Request, State},
@@ -10,7 +14,6 @@ use axum::{
     Json, Router,
 };
 use log::{error, info};
-use serde_json::json;
 use std::sync::Arc;
 
 /// Основной маппинг эндпоинтов
@@ -22,6 +25,7 @@ pub fn create_router(state: Arc<dyn ChatRepository>) -> Router {
         .route("/send", post(send))
         .route("/messages", get(messages))
         // Дополнительные эндпоинты
+        .route("/login", post(login))
         .route("/create", post(create))
         .route("/list", get(list))
         // Настройка
@@ -35,7 +39,6 @@ async fn logger(request: Request, next: Next) -> impl IntoResponse {
     let uri = request.uri().clone();
     let response = next.run(request).await;
     let status = response.status();
-    let body = response.body();
     match status {
         StatusCode::OK => info!("{method} {uri} -> {status}"),
         _ => error!("{method} {uri} -> {status}"),
@@ -49,45 +52,57 @@ pub async fn create(
     State(state): State<Arc<dyn ChatRepository>>,
     Json(body): Json<RequestChatCreate>,
 ) -> impl IntoResponse {
-    if let Err(e) = state.create(body.name, body.password).await {
-        (StatusCode::CONFLICT, e)
-    } else {
-        (StatusCode::OK, String::new())
+    match state.chat_create(body.name, body.password).await {
+        Ok(_) => (StatusCode::OK, "".to_string()),
+        Err(e) => (StatusCode::CONFLICT, e),
     }
 }
 
 /// Получение списка чат-комнат
 pub async fn list(State(state): State<Arc<dyn ChatRepository>>) -> impl IntoResponse {
     let mut result = vec![];
-    for chat in state.list().await {
+    for (id, chat) in state.chat_list().await {
         result.push(ResponseChatInfo {
-            name: chat.name.clone(),
-            users: chat.users.load(std::sync::atomic::Ordering::Relaxed),
-            private: chat.password.is_some(),
+            id,
+            name: chat.name().to_string(),
+            users: chat.users(),
+            private: chat.is_private(),
         })
     }
 
-    Json(json!(result))
+    Json(result)
 }
 
-/// Индентификация и подключение пользователя
+/// Регистрация пользователя и получение уникального индентификатора
+pub async fn login(
+    State(state): State<Arc<dyn ChatRepository>>,
+    Json(body): Json<RequestUserLogin>,
+) -> impl IntoResponse {
+    match state.user_login(body.username).await {
+        Ok(id) => Json(ResponseUserLogin { id }).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, e).into_response(),
+    }
+}
+
+/// Подключение пользователя к чат-комнате
 pub async fn join(
     State(state): State<Arc<dyn ChatRepository>>,
     Json(body): Json<RequestChatJoin>,
 ) -> impl IntoResponse {
-    let mut a = format!("{} connected to {}", body.username, body.chat);
-    if let Some(password) = body.password {
-        a += format!(" with password {password}").as_str();
+    match state.join(&body.user, &body.chat, body.password).await {
+        Ok(_) => (StatusCode::OK, "".to_string()),
+        Err(e) => (StatusCode::BAD_REQUEST, e),
     }
-    a
 }
 
-///
 pub async fn leave(
     State(state): State<Arc<dyn ChatRepository>>,
-    Json(body): Json<RequestChatCreate>,
+    Json(body): Json<RequestChatLeave>,
 ) -> impl IntoResponse {
-    todo!()
+    match state.leave(&body.user, &body.chat).await {
+        Ok(_) => (StatusCode::OK, "".to_string()),
+        Err(e) => (StatusCode::BAD_REQUEST, e),
+    }
 }
 
 pub async fn send(
