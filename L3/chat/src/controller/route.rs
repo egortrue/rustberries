@@ -47,7 +47,7 @@ async fn logger(request: Request, next: Next) -> impl IntoResponse {
     response
 }
 
-/// Создание чат-комнаты
+/// Создание чата
 pub async fn create(
     State(state): State<Arc<dyn ChatRepository>>,
     Json(body): Json<RequestChatCreate>,
@@ -58,7 +58,7 @@ pub async fn create(
     }
 }
 
-/// Получение списка чат-комнат
+/// Получение списка чатов
 pub async fn list(State(state): State<Arc<dyn ChatRepository>>) -> impl IntoResponse {
     let mut result = vec![];
     for (id, chat) in state.chat_list().await {
@@ -89,7 +89,7 @@ pub async fn login(
     }
 }
 
-/// Подключение пользователя к чат-комнате
+/// Подключение пользователя к чата
 pub async fn join(
     State(state): State<Arc<dyn ChatRepository>>,
     Json(body): Json<RequestChatJoin>,
@@ -100,6 +100,7 @@ pub async fn join(
     }
 }
 
+/// Отключение пользователя от чата
 pub async fn leave(
     State(state): State<Arc<dyn ChatRepository>>,
     Json(body): Json<RequestChatLeave>,
@@ -110,6 +111,7 @@ pub async fn leave(
     }
 }
 
+/// Отправка пользователем сообщения в чат
 pub async fn send(
     State(state): State<Arc<dyn ChatRepository>>,
     Json(body): Json<RequestMessageSend>,
@@ -120,6 +122,7 @@ pub async fn send(
     }
 }
 
+/// Получение пользователем всех сообщений в чате
 pub async fn messages(
     State(state): State<Arc<dyn ChatRepository>>,
     Json(body): Json<RequestMessageList>,

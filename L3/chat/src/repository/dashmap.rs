@@ -83,7 +83,7 @@ impl ChatRepository for State {
 
     async fn leave(&self, user: &Uuid, chat: &Uuid) -> Result<(), String> {
         // Лок чата
-        let chat_lock = match self.chats.get_mut(chat) {
+        let chat_lock = match self.chats.get(chat) {
             Some(entry) => entry,
             None => return Err("Chat not found".to_string()),
         };
@@ -109,7 +109,7 @@ impl ChatRepository for State {
 
     async fn send(&self, user: &Uuid, chat: &Uuid, text: String) -> Result<(), String> {
         // Лок чата
-        let chat_lock = match self.chats.get_mut(chat) {
+        let chat_lock = match self.chats.get(chat) {
             Some(entry) => entry,
             None => return Err("Chat not found".to_string()),
         };
@@ -121,7 +121,7 @@ impl ChatRepository for State {
         };
 
         // Лок пользователя
-        let user_lock = match self.users.get_mut(user) {
+        let user_lock = match self.users.get(user) {
             Some(entry) => entry,
             None => return Err("User not found".to_string()),
         };
@@ -142,13 +142,13 @@ impl ChatRepository for State {
 
     async fn messages(&self, user: &Uuid, chat: &Uuid) -> Result<Vec<Message>, String> {
         // Лок пользователя
-        let _ = match self.users.get_mut(user) {
+        let _ = match self.users.get(user) {
             Some(entry) => entry,
             None => return Err("User not found".to_string()),
         };
 
         // Лок сообщений
-        let messages_lock = match self.messages.get_mut(chat) {
+        let messages_lock = match self.messages.get(chat) {
             Some(entry) => entry,
             None => return Err("Messages for chat not found".to_string()),
         };

@@ -41,6 +41,8 @@ impl User {
 
         // Асинхронный поток отправки данных клиенту в режиме реального времени
         // Данные отправляются по тригеру broadcast::Receiver
+        // Сам ресивер живет только в этом потоке и удалиться вместе остановкой потока по токену
+        // Пользователь на данный момент уже должен прослушивать указнный сокет
         tokio::spawn(async move {
             if let Ok(mut stream) = tokio::net::TcpStream::connect(address).await {
                 loop {
@@ -52,8 +54,11 @@ impl User {
                             match answer {
                                 Ok(message) => {
                                     let data = serde_json::to_string(&message).unwrap();
-                                    log::info!("{data}");
-                                    let _ = stream.write(data.as_bytes());
+                                    match stream.write(data.as_bytes()).await {
+                                        Ok(bytes) => log::trace!("Send {bytes}b to {address}"),
+                                        Err(_) => break,
+                                    }
+
                                 }
                                 Err(_) => break,
                             }

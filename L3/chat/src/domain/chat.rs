@@ -32,6 +32,7 @@ impl Chat {
         self.users.load(Ordering::Relaxed)
     }
 
+    /// Получение ресивера канала и обновление атомарного счетчика (+1)
     pub fn subscribe(&self, password: Option<String>) -> Result<Receiver<Message>, String> {
         if self.password.is_some() && self.password != password {
             return Err("Wrong password for subscribe".to_string());
@@ -40,7 +41,9 @@ impl Chat {
         Ok(self.channel.subscribe())
     }
 
+    /// Обновление атомарного счетчика (-1)
     pub fn unsubscribe(&self) -> Result<(), String> {
+        // Должны загрузить счетчик и проверить его на 0 прежде чем убавить его
         if self.users.load(Ordering::Acquire) == 0 {
             return Err("No users to unsubscribe".to_string());
         }
@@ -48,6 +51,7 @@ impl Chat {
         Ok(())
     }
 
+    /// Отправка сообщения всем ресиверам
     pub fn send(&self, message: &Message) -> Result<(), String> {
         match self.channel.send(message.clone()) {
             Ok(_) => Ok(()),
