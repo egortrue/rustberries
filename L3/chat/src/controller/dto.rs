@@ -8,6 +8,7 @@ use uuid::Uuid;
 #[derive(Deserialize)]
 pub struct RequestUserLogin {
     pub username: String,
+    pub address: String,
 }
 
 #[derive(Serialize)]
@@ -51,4 +52,21 @@ pub struct ResponseChatInfo {
     pub name: String,
     pub users: usize,
     pub private: bool,
+}
+
+/////////////////////////////////////////////////////////////////////////
+
+/// Данные для отправки сообщения в комнату
+#[derive(Deserialize)]
+pub struct RequestMessageSend {
+    pub user: Uuid,
+    pub chat: Uuid,
+    pub text: String,
+}
+
+/// Данные для получения списка сообщений
+#[derive(Deserialize)]
+pub struct RequestMessageList {
+    pub user: Uuid,
+    pub chat: Uuid,
 }

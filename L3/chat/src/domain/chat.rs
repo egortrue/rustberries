@@ -32,26 +32,26 @@ impl Chat {
         self.users.load(Ordering::Relaxed)
     }
 
-    pub fn subscribe(&self, password: Option<String>) -> Result<Receiver<Message>, &str> {
+    pub fn subscribe(&self, password: Option<String>) -> Result<Receiver<Message>, String> {
         if self.password.is_some() && self.password != password {
-            return Err("Wrong password for subscribe");
+            return Err("Wrong password for subscribe".to_string());
         }
         self.users.fetch_add(1, Ordering::Relaxed);
         Ok(self.channel.subscribe())
     }
 
-    pub fn unsubscribe(&self) -> Result<(), &str> {
+    pub fn unsubscribe(&self) -> Result<(), String> {
         if self.users.load(Ordering::Acquire) == 0 {
-            return Err("No users to unsubscribe");
+            return Err("No users to unsubscribe".to_string());
         }
         self.users.fetch_sub(1, Ordering::Release);
         Ok(())
     }
 
-    pub fn send(&self, message: &Message) -> Result<(), &str> {
+    pub fn send(&self, message: &Message) -> Result<(), String> {
         match self.channel.send(message.clone()) {
-            Ok(_) => todo!(),
-            Err(_) => todo!(),
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.to_string()),
         }
     }
 }

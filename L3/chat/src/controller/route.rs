@@ -1,8 +1,8 @@
 // Обработчики HTTP-запросов
 
 use crate::controller::dto::{
-    RequestChatCreate, RequestChatJoin, RequestChatLeave, RequestUserLogin, ResponseChatInfo,
-    ResponseUserLogin,
+    RequestChatCreate, RequestChatJoin, RequestChatLeave, RequestMessageList, RequestMessageSend,
+    RequestUserLogin, ResponseChatCreate, ResponseChatInfo, ResponseUserLogin,
 };
 use crate::repository::ChatRepository;
 use axum::{
@@ -52,9 +52,9 @@ pub async fn create(
     State(state): State<Arc<dyn ChatRepository>>,
     Json(body): Json<RequestChatCreate>,
 ) -> impl IntoResponse {
-    match state.chat_create(body.name, body.password).await {
-        Ok(_) => (StatusCode::OK, "".to_string()),
-        Err(e) => (StatusCode::CONFLICT, e),
+    match state.chat_create(body.name.clone(), body.password).await {
+        Ok(id) => Json(ResponseChatCreate { id }).into_response(),
+        Err(e) => (StatusCode::CONFLICT, e).into_response(),
     }
 }
 
@@ -78,7 +78,12 @@ pub async fn login(
     State(state): State<Arc<dyn ChatRepository>>,
     Json(body): Json<RequestUserLogin>,
 ) -> impl IntoResponse {
-    match state.user_login(body.username).await {
+    let socket = match tokio::net::lookup_host(body.address).await {
+        Ok(mut el) => el.next().unwrap(),
+        Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
+    };
+
+    match state.user_login(body.username.clone(), socket).await {
         Ok(id) => Json(ResponseUserLogin { id }).into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, e).into_response(),
     }
@@ -107,14 +112,20 @@ pub async fn leave(
 
 pub async fn send(
     State(state): State<Arc<dyn ChatRepository>>,
-    Json(body): Json<RequestChatCreate>,
+    Json(body): Json<RequestMessageSend>,
 ) -> impl IntoResponse {
-    todo!()
+    match state.send(&body.user, &body.chat, body.text).await {
+        Ok(_) => (StatusCode::OK, "".to_string()),
+        Err(e) => (StatusCode::BAD_REQUEST, e),
+    }
 }
 
 pub async fn messages(
     State(state): State<Arc<dyn ChatRepository>>,
-    Json(body): Json<RequestChatCreate>,
+    Json(body): Json<RequestMessageList>,
 ) -> impl IntoResponse {
-    todo!()
+    match state.messages(&body.user, &body.chat).await {
+        Ok(messages) => (StatusCode::OK, Json(messages)).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, e).into_response(),
+    }
 }

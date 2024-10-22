@@ -1,16 +1,22 @@
 use super::message::Message;
-use tokio::sync::broadcast;
+use std::net::SocketAddr;
+use tokio::{io::AsyncWriteExt, sync::broadcast::Receiver};
+use tokio_util::sync::CancellationToken;
 
 pub struct User {
     name: String,
-    channel: Option<broadcast::Receiver<Message>>,
+    address: SocketAddr,
+
+    // Токен подключения
+    token: Option<CancellationToken>,
 }
 
 impl User {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: String, address: SocketAddr) -> Self {
         Self {
-            name: name,
-            channel: None,
+            name,
+            address,
+            token: None,
         }
     }
 
@@ -19,22 +25,54 @@ impl User {
     }
 
     pub fn is_subscribed(&self) -> bool {
-        self.channel.is_some()
+        self.token.is_some()
     }
 
-    pub fn subscribe(&mut self, receiver: broadcast::Receiver<Message>) -> Result<(), &str> {
-        if self.channel.is_some() {
-            return Err("User already subscribed!");
+    pub fn subscribe(&mut self, receiver: Receiver<Message>) -> Result<(), String> {
+        if self.is_subscribed() {
+            return Err("User already subscribed!".to_string());
         }
-        self.channel = Some(receiver);
+
+        // Подготовка данных
+        let token = CancellationToken::new();
+        let address = self.address.clone();
+        let mut receiver = Box::new(receiver);
+        self.token = Some(token.clone());
+
+        // Асинхронный поток отправки данных клиенту в режиме реального времени
+        // Данные отправляются по тригеру broadcast::Receiver
+        tokio::spawn(async move {
+            if let Ok(mut stream) = tokio::net::TcpStream::connect(address).await {
+                loop {
+                    tokio::select! {
+                        _ = token.cancelled() => {
+                            break;
+                        }
+                        answer = receiver.recv() => {
+                            match answer {
+                                Ok(message) => {
+                                    let data = serde_json::to_string(&message).unwrap();
+                                    log::info!("{data}");
+                                    let _ = stream.write(data.as_bytes());
+                                }
+                                Err(_) => break,
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
         Ok(())
     }
 
-    pub fn unsubscribe(&mut self) -> Result<(), &str> {
-        if self.channel.is_none() {
-            return Err("User already unsubscribed!");
+    pub fn unsubscribe(&mut self) -> Result<(), String> {
+        if !self.is_subscribed() {
+            return Err("User already unsubscribed!".to_string());
         }
-        self.channel = None;
+
+        self.token.as_ref().unwrap().cancel();
+        self.token = None;
         Ok(())
     }
 }
