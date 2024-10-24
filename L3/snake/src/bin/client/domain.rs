@@ -1,6 +1,8 @@
-use std::collections::LinkedList;
+use std::{collections::LinkedList, time::Duration};
 
 pub struct World {
+    pub update_time: u64, // in ms -> FPS
+    pub spawn_time: u64,  // apple spawn
     pub snake: Snake,
     pub enemies: Vec<Snake>,
     pub apples: Vec<Apple>,
@@ -18,7 +20,8 @@ pub enum Direction {
 }
 
 pub struct Snake {
-    pub color: [u8; 4],
+    pub username: String,
+    pub color: [u8; 3],
     pub positions: LinkedList<(usize, usize)>,
     pub direction: Direction,
 }
@@ -33,5 +36,20 @@ impl Snake {
             Direction::RIGHT => self.positions.push_front((head.0 + 1, head.1)),
         }
         self.positions.pop_back();
+    }
+
+    pub fn grow(&mut self) {
+        self.positions
+            .push_back(self.positions.back().unwrap().clone())
+    }
+
+    pub fn check_collision(&self, object: impl IntoIterator<Item = (usize, usize)>) -> bool {
+        let head = *self.positions.front().unwrap();
+        for collider in object {
+            if head == collider {
+                return true;
+            }
+        }
+        false
     }
 }

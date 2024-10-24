@@ -7,3 +7,4 @@ edition = "2021"
 eframe = "0.29.1"
 egui = "0.29.1"
 egui_extras = { version = "0.29.1", features = ["all_loaders", "file", "image", "svg"] }
+rand = "0.8.5"
