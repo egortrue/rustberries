@@ -1,27 +1,25 @@
-mod app;
-mod domain;
+mod gui;
 
-use app::App;
-use domain::{Apple, Snake, World};
+use app::domain::{apple::Apple, snake::Snake, world::World};
+use gui::Client;
 use rand::Rng;
 use std::{
-    collections::LinkedList,
     sync::{Arc, Mutex},
     time::{self, Duration},
 };
 
 fn main() {
     let mut random = rand::thread_rng();
+
+    let username = format!("user{}", random.gen::<u16>());
+    let color = [random.gen::<u8>(), random.gen::<u8>(), random.gen::<u8>()];
+    let snake = Snake::spawn(username, color);
+
     let world = World {
+        size: (100, 100),
         update_time: 200,
-        spawn_time: 1000,
-        snake: Snake {
-            username: format!("user{}", random.gen::<u16>()),
-            color: [random.gen::<u8>(), random.gen::<u8>(), random.gen::<u8>()],
-            positions: LinkedList::from([(10, 10), (9, 10), (8, 10)]),
-            direction: domain::Direction::RIGHT,
-        },
-        enemies: vec![],
+        spawn_time: 2500,
+        snakes: vec![],
         apples: vec![],
     };
 
@@ -32,27 +30,35 @@ fn main() {
     let spawn_time = Duration::from_millis(world.spawn_time);
 
     // Синх
-    let world = Arc::new(Mutex::new(world));
-    let world_update = world.clone();
+    let snake_updater = Arc::new(Mutex::new(snake));
+    let snake_mover = snake_updater.clone();
+    let world_draw = Arc::new(Mutex::new(world));
+    let world_updater = world_draw.clone();
 
     std::thread::spawn(move || loop {
         if update_timer.elapsed() > update_time {
-            let mut world = world_update.lock().unwrap();
-            world.snake.moving();
+            let mut snake = snake_mover.lock().unwrap();
+            let mut world = world_updater.lock().unwrap();
 
+            // Передвижение
+            snake.moving();
             for (i, apple) in world.apples.iter().enumerate() {
-                if (world.snake.check_collision([apple.position])) {
-                    world.snake.grow();
+                if snake.collide_with([apple.position]) {
+                    snake.grow();
                     world.apples.remove(i);
                     break;
                 }
             }
 
+            // Обновление мира
+            world.snakes.pop();
+            world.snakes.push(snake.clone());
+
             update_timer = time::Instant::now();
         }
 
         if spawn_timer.elapsed() > spawn_time {
-            let mut world = world_update.lock().unwrap();
+            let mut world = world_updater.lock().unwrap();
             let mut random = rand::thread_rng();
             world.apples.push(Apple {
                 position: (random.gen::<usize>() % 30, random.gen::<usize>() % 30),
@@ -62,5 +68,5 @@ fn main() {
         }
     });
 
-    App::run(&world);
+    Client::run(snake_updater, world_draw);
 }

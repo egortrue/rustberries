@@ -1,7 +1,15 @@
 [package]
-name = "snake"
+name = "app"
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+name = "server"
+path = "src/server/main.rs"
+
+[[bin]]
+name = "client"
+path = "src/client/main.rs"
 
 [dependencies]
 eframe = "0.29.1"
