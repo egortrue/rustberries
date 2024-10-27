@@ -18,17 +18,16 @@ pub struct Snake {
 }
 
 impl Snake {
-    pub fn spawn(username: String, color: [u8; 3]) -> Self {
-        let head: (usize, usize) = (15, 15);
+    pub fn new(username: String, color: [u8; 3], position: (usize, usize)) -> Self {
         Self {
             username,
             color,
             score: 0,
             direction: SnakeDirection::RIGHT,
             positions: LinkedList::from([
-                (head.0, head.1),
-                (head.0 - 1, head.1),
-                (head.0 - 2, head.1),
+                (position.0, position.1),
+                (position.0 - 1, position.1),
+                (position.0 - 2, position.1),
             ]),
         }
     }

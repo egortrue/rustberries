@@ -1,72 +1,29 @@
 mod gui;
+mod socket;
 
-use app::domain::{apple::Apple, snake::Snake, world::World};
-use gui::Client;
-use rand::Rng;
-use std::{
-    sync::{Arc, Mutex},
-    time::{self, Duration},
-};
+use app::domain::{snake::Snake, world::World};
+use rand::{thread_rng, Rng};
+use std::sync::{Arc, RwLock};
 
 fn main() {
-    let mut random = rand::thread_rng();
+    // Локальная змея (для локального изменения и отправки на сервер)
+    let snake = Arc::new(RwLock::new(Snake::new(
+        format!("user{}", thread_rng().gen::<u8>()),
+        [
+            thread_rng().gen::<u8>(),
+            thread_rng().gen::<u8>(),
+            thread_rng().gen::<u8>(),
+        ],
+        (
+            (thread_rng().gen::<usize>() % 10).clamp(2, 10),
+            (thread_rng().gen::<usize>() % 10).clamp(2, 10),
+        ),
+    )));
 
-    let username = format!("user{}", random.gen::<u16>());
-    let color = [random.gen::<u8>(), random.gen::<u8>(), random.gen::<u8>()];
-    let snake = Snake::spawn(username, color);
+    // Локальная копия мира (отрисовка) (включает в себя локальную змею после старта игры)
+    let world = Arc::new(RwLock::new(World::new(40, 40)));
 
-    let world = World {
-        size: (100, 100),
-        update_time: 200,
-        spawn_time: 2500,
-        snakes: vec![],
-        apples: vec![],
-    };
-
-    // Таймеры
-    let mut update_timer = time::Instant::now();
-    let mut spawn_timer = time::Instant::now();
-    let update_time = Duration::from_millis(world.update_time);
-    let spawn_time = Duration::from_millis(world.spawn_time);
-
-    // Синх
-    let snake_updater = Arc::new(Mutex::new(snake));
-    let snake_mover = snake_updater.clone();
-    let world_draw = Arc::new(Mutex::new(world));
-    let world_updater = world_draw.clone();
-
-    std::thread::spawn(move || loop {
-        if update_timer.elapsed() > update_time {
-            let mut snake = snake_mover.lock().unwrap();
-            let mut world = world_updater.lock().unwrap();
-
-            // Передвижение
-            snake.moving();
-            for (i, apple) in world.apples.iter().enumerate() {
-                if snake.collide_with([apple.position]) {
-                    snake.grow();
-                    world.apples.remove(i);
-                    break;
-                }
-            }
-
-            // Обновление мира
-            world.snakes.pop();
-            world.snakes.push(snake.clone());
-
-            update_timer = time::Instant::now();
-        }
-
-        if spawn_timer.elapsed() > spawn_time {
-            let mut world = world_updater.lock().unwrap();
-            let mut random = rand::thread_rng();
-            world.apples.push(Apple {
-                position: (random.gen::<usize>() % 30, random.gen::<usize>() % 30),
-            });
-
-            spawn_timer = time::Instant::now();
-        }
-    });
-
-    Client::run(snake_updater, world_draw);
+    // Запуск сокета для обновления данных и GUI-клиента для отрисовки
+    socket::run(snake.clone(), world.clone());
+    gui::run(snake.clone(), world.clone());
 }

@@ -4,9 +4,9 @@ use app::domain::{
 };
 use egui::{
     vec2, Align, CentralPanel, Color32, Context, Image, ImageSource, Key, Label, Layout, Pos2,
-    Rect, Style, TopBottomPanel, Ui, Vec2, Visuals,
+    Rect, Stroke, Style, TopBottomPanel, Ui, Vec2, Visuals,
 };
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 const WINDOW_TITLE: &str = "L3.10 Snake (@Egor Trukhin)";
 const ASSET_SNAKE_HEAD: ImageSource = egui::include_image!("../../assets/snake_head.svg");
@@ -15,11 +15,44 @@ const ASSET_APPLE: ImageSource = egui::include_image!("../../assets/apple.svg");
 const CELL_SIZE: Vec2 = egui::vec2(30.0, 30.0);
 
 pub struct Client {
-    snake: Arc<Mutex<Snake>>,
-    world: Arc<Mutex<World>>,
+    snake: Arc<RwLock<Snake>>,
+    world: Arc<RwLock<World>>,
     image_snake_head: Image<'static>,
     image_snake_body: Image<'static>,
     image_apple: Image<'static>,
+}
+
+pub fn run(snake: Arc<RwLock<Snake>>, world: Arc<RwLock<World>>) {
+    let size = (&world).read().unwrap().size;
+
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_transparent(true)
+            .with_resizable(false)
+            .with_maximized(false)
+            .with_maximize_button(false)
+            .with_inner_size(vec2(
+                CELL_SIZE.x * size.0 as f32,
+                CELL_SIZE.y * size.1 as f32,
+            )),
+
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        WINDOW_TITLE,
+        options,
+        Box::new(|cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            let style = Style {
+                visuals: Visuals::dark(),
+                ..Style::default()
+            };
+            cc.egui_ctx.set_style(style);
+            Ok(Box::new(Client::new(snake, world)))
+        }),
+    )
+    .unwrap();
 }
 
 impl eframe::App for Client {
@@ -36,6 +69,7 @@ impl eframe::App for Client {
 
         // Отрисовка игрового мира
         CentralPanel::default().show(ctx, |ui| {
+            self.draw_borders(ui);
             self.draw_snakes(ui);
             self.draw_apples(ui);
         });
@@ -46,7 +80,7 @@ impl eframe::App for Client {
 }
 
 impl Client {
-    pub fn new(snake: Arc<Mutex<Snake>>, world: Arc<Mutex<World>>) -> Self {
+    pub fn new(snake: Arc<RwLock<Snake>>, world: Arc<RwLock<World>>) -> Self {
         Self {
             snake,
             world,
@@ -56,34 +90,18 @@ impl Client {
         }
     }
 
-    pub fn run(snake: Arc<Mutex<Snake>>, world: Arc<Mutex<World>>) {
-        let options = eframe::NativeOptions {
-            viewport: egui::ViewportBuilder::default()
-                .with_transparent(true)
-                .with_resizable(false)
-                .with_inner_size(vec2(1000.0, 1000.0)),
-
-            ..Default::default()
-        };
-
-        eframe::run_native(
-            WINDOW_TITLE,
-            options,
-            Box::new(|cc| {
-                egui_extras::install_image_loaders(&cc.egui_ctx);
-                let style = Style {
-                    visuals: Visuals::dark(),
-                    ..Style::default()
-                };
-                cc.egui_ctx.set_style(style);
-                Ok(Box::new(Client::new(snake, world)))
-            }),
-        )
-        .unwrap();
+    pub fn draw_borders(&mut self, ui: &mut Ui) {
+        egui::Frame::canvas(ui.style()).show(ui, |ui| {
+            ui.painter().rect_stroke(
+                ui.max_rect(),
+                egui::Rounding::default(),
+                Stroke::new(4.0, Color32::DEBUG_COLOR),
+            );
+        });
     }
 
     pub fn draw_snakes(&mut self, ui: &mut Ui) {
-        let world = match self.world.try_lock() {
+        let world = match self.world.try_read() {
             Ok(world) => world,
             Err(_) => return,
         };
@@ -134,34 +152,33 @@ impl Client {
     }
 
     pub fn draw_apples(&mut self, ui: &mut Ui) {
-        let world = match self.world.try_lock() {
-            Ok(world) => world,
-            Err(_) => return,
-        };
-
-        for apple in &world.apples {
-            let (x, y) = (apple.position.0 as f32, apple.position.1 as f32);
-            let center = Pos2::new(CELL_SIZE.x * (x + 0.5), CELL_SIZE.y * (y + 0.5));
-            let rect = Rect::from_center_size(center, CELL_SIZE);
-            ui.put(rect, self.image_apple.clone());
+        if let Ok(world) = self.world.try_read() {
+            for apple in &world.apples {
+                let center = Pos2::new(
+                    CELL_SIZE.x * (apple.position.0 as f32 + 0.5),
+                    CELL_SIZE.y * (apple.position.1 as f32 + 0.5),
+                );
+                let rect = Rect::from_center_size(center, CELL_SIZE * 0.7);
+                ui.put(rect, self.image_apple.clone());
+            }
         }
     }
 
     pub fn draw_score(&self, ui: &mut Ui) {
-        if let Ok(snake) = self.snake.try_lock() {
+        if let Ok(snake) = self.snake.try_read() {
             ui.label(format!("Score: {}", snake.score));
         }
     }
 
     pub fn change_name(&mut self, ui: &mut Ui) {
-        if let Ok(mut snake) = self.snake.try_lock() {
+        if let Ok(mut snake) = self.snake.try_write() {
             ui.label("Username");
             ui.text_edit_singleline(&mut snake.username);
         }
     }
 
     pub fn change_color(&mut self, ui: &mut Ui) {
-        if let Ok(mut snake) = self.snake.try_lock() {
+        if let Ok(mut snake) = self.snake.try_write() {
             ui.label("Color");
             ui.color_edit_button_srgb(&mut snake.color);
         }
@@ -182,7 +199,7 @@ impl Client {
 
         // Обновление направления
         if let Some(new_direction) = new_direction {
-            if let Ok(mut snake) = self.snake.try_lock() {
+            if let Ok(mut snake) = self.snake.try_write() {
                 match (&snake.direction, &new_direction) {
                     // Игнорируем разворот на 180 градусов
                     (SnakeDirection::UP, SnakeDirection::DOWN) => return,
