@@ -1,4 +1,5 @@
 mod gui;
+mod logic;
 mod socket;
 
 use app::domain::{snake::Snake, world::World};
@@ -20,7 +21,12 @@ fn main() {
     // Локальная копия мира (отрисовка) (включает в себя локальную змею после старта игры)
     let world = Arc::new(RwLock::new(World::default()));
 
-    // Запуск сокета для обновления данных и GUI-клиента для отрисовки
+    // Подключение к сокетам для обновления данных
     socket::run(snake.clone(), world.clone());
+
+    // Внитриигровая логика со стороны клиента
+    logic::run(snake.clone(), world.clone());
+
+    // GUI-клиент для отрисовки
     gui::run(snake.clone(), world.clone());
 }

@@ -1,7 +1,11 @@
+mod logic;
 mod socket;
 
 use app::domain::world::World;
-use std::sync::{Arc, RwLock};
+use std::{
+    env,
+    sync::{Arc, RwLock},
+};
 
 fn main() {
     // Загрузка переменных из .env-файла
@@ -14,8 +18,17 @@ fn main() {
         .init();
 
     // Создание мира
-    let world = Arc::new(RwLock::new(World::new(40, 40)));
+    let width = env::var("WORLD_WIDTH")
+        .unwrap_or("40".to_string())
+        .parse::<usize>()
+        .expect("ENV not found: WORLD_WIDTH");
+    let height = env::var("WORLD_HEIGHT")
+        .unwrap_or("40".to_string())
+        .parse::<usize>()
+        .expect("ENV not found: WORLD_HEIGHT");
+    let world = Arc::new(RwLock::new(World::new(width, height)));
 
-    // Запуск
-    socket::run(world);
+    // Запуск игровой логики и прослушивание сокетов
+    logic::run(world.clone());
+    socket::run(world.clone());
 }

@@ -1,8 +1,7 @@
+use super::collider::Collider;
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::collections::LinkedList;
-
-use super::{apple::Apple, Collider};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum SnakeDirection {
@@ -14,6 +13,7 @@ pub enum SnakeDirection {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Snake {
+    alive: bool,
     pub username: String,
     pub color: [u8; 3],
     pub score: usize,
@@ -24,6 +24,7 @@ pub struct Snake {
 impl Snake {
     fn new(username: String, color: [u8; 3], position: (usize, usize)) -> Self {
         Self {
+            alive: false,
             username,
             color,
             score: 0,
@@ -42,10 +43,25 @@ impl Snake {
             format!("user{}", random.gen::<u16>()),
             [random.gen::<u8>(), random.gen::<u8>(), random.gen::<u8>()],
             (
-                (random.gen::<usize>() % 10).clamp(2, 10),
-                (random.gen::<usize>() % 10).clamp(2, 10),
+                (random.gen::<usize>() % 10).clamp(5, 10),
+                (random.gen::<usize>() % 10).clamp(5, 10),
             ),
         )
+    }
+
+    pub fn is_alive(&self) -> bool {
+        self.alive
+    }
+
+    pub fn alive(&mut self) {
+        self.alive = true;
+        self.score = 0;
+        self.positions = Snake::random().positions;
+        self.direction = SnakeDirection::RIGHT;
+    }
+
+    pub fn die(&mut self) {
+        self.alive = false;
     }
 
     pub fn moving(&mut self) {
@@ -69,11 +85,16 @@ impl Snake {
 
     pub fn collide_with(&self, object: Collider) -> bool {
         let head = *self.positions.front().unwrap();
-        let positions = match object {
-            Collider::World(world) => vec![],
-            Collider::Apple(apple) => vec![apple.position],
-            Collider::Snake(snake) => vec![],
-        };
-        positions.contains(&head)
+        match object {
+            Collider::Apple(apple) => apple == head,
+            Collider::Snake(snake) => snake.contains(&head),
+            Collider::World(world) => {
+                if head.0 == 0 || head.0 == world.0 - 1 || head.1 == 1 || head.1 == world.1 - 1 {
+                    true
+                } else {
+                    false
+                }
+            }
+        }
     }
 }

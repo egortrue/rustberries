@@ -12,7 +12,7 @@ const WINDOW_TITLE: &str = "L3.10 Snake (@Egor Trukhin)";
 const ASSET_SNAKE_HEAD: ImageSource = egui::include_image!("../../assets/snake_head.svg");
 const ASSET_SNAKE_BODY: ImageSource = egui::include_image!("../../assets/snake_body.svg");
 const ASSET_APPLE: ImageSource = egui::include_image!("../../assets/apple.svg");
-const CELL_SIZE: Vec2 = egui::vec2(30.0, 30.0);
+const CELL_SIZE: Vec2 = egui::vec2(25.0, 25.0);
 
 pub struct GUI {
     snake: Arc<RwLock<Snake>>,
@@ -23,7 +23,7 @@ pub struct GUI {
 }
 
 pub fn run(snake: Arc<RwLock<Snake>>, world: Arc<RwLock<World>>) {
-    let world_size = (&world).read().unwrap().size;
+    let world_size = world.read().unwrap().size;
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -60,6 +60,10 @@ impl eframe::App for GUI {
         // Верхняя панель настроек
         TopBottomPanel::top("options").show(ctx, |ui| {
             ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
+                self.play_button(ui);
+                ui.separator();
+                self.draw_alive(ui);
+                ui.separator();
                 self.draw_score(ui);
                 ui.separator();
                 self.change_color(ui);
@@ -95,7 +99,7 @@ impl GUI {
             ui.painter().rect_stroke(
                 ui.max_rect(),
                 egui::Rounding::default(),
-                Stroke::new(4.0, Color32::DEBUG_COLOR),
+                Stroke::new(6.0, Color32::GOLD),
             );
         });
     }
@@ -161,6 +165,28 @@ impl GUI {
                 let rect = Rect::from_center_size(center, CELL_SIZE * 0.7);
                 ui.put(rect, self.image_apple.clone());
             }
+        }
+    }
+
+    pub fn play_button(&self, ui: &mut Ui) {
+        if let Ok(mut snake) = self.snake.try_write() {
+            let text = match snake.is_alive() {
+                false => "Play",
+                true => "Exit",
+            };
+            if ui.button(text).clicked() {
+                if snake.is_alive() {
+                    snake.die();
+                } else {
+                    snake.alive();
+                }
+            };
+        }
+    }
+
+    pub fn draw_alive(&self, ui: &mut Ui) {
+        if let Ok(snake) = self.snake.try_read() {
+            ui.label(format!("Alive: {}", snake.is_alive()));
         }
     }
 
