@@ -14,7 +14,7 @@ const ASSET_SNAKE_BODY: ImageSource = egui::include_image!("../../assets/snake_b
 const ASSET_APPLE: ImageSource = egui::include_image!("../../assets/apple.svg");
 const CELL_SIZE: Vec2 = egui::vec2(30.0, 30.0);
 
-pub struct Client {
+pub struct GUI {
     snake: Arc<RwLock<Snake>>,
     world: Arc<RwLock<World>>,
     image_snake_head: Image<'static>,
@@ -23,7 +23,7 @@ pub struct Client {
 }
 
 pub fn run(snake: Arc<RwLock<Snake>>, world: Arc<RwLock<World>>) {
-    let size = (&world).read().unwrap().size;
+    let world_size = (&world).read().unwrap().size;
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -32,8 +32,8 @@ pub fn run(snake: Arc<RwLock<Snake>>, world: Arc<RwLock<World>>) {
             .with_maximized(false)
             .with_maximize_button(false)
             .with_inner_size(vec2(
-                CELL_SIZE.x * size.0 as f32,
-                CELL_SIZE.y * size.1 as f32,
+                CELL_SIZE.x * world_size.0 as f32,
+                CELL_SIZE.y * world_size.1 as f32,
             )),
 
         ..Default::default()
@@ -49,14 +49,14 @@ pub fn run(snake: Arc<RwLock<Snake>>, world: Arc<RwLock<World>>) {
                 ..Style::default()
             };
             cc.egui_ctx.set_style(style);
-            Ok(Box::new(Client::new(snake, world)))
+            Ok(Box::new(GUI::new(snake, world)))
         }),
     )
     .unwrap();
 }
 
-impl eframe::App for Client {
-    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+impl eframe::App for GUI {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         // Верхняя панель настроек
         TopBottomPanel::top("options").show(ctx, |ui| {
             ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
@@ -79,7 +79,7 @@ impl eframe::App for Client {
     }
 }
 
-impl Client {
+impl GUI {
     pub fn new(snake: Arc<RwLock<Snake>>, world: Arc<RwLock<World>>) -> Self {
         Self {
             snake,

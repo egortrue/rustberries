@@ -1,9 +1,9 @@
-use rand::{thread_rng, Rng};
-
 use crate::domain::apple::Apple;
 use crate::domain::snake::Snake;
+use rand::{thread_rng, Rng};
+use serde::{Deserialize, Serialize};
 
-#[derive(Default)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct World {
     // Конфигурация
     pub size: (usize, usize), // Размер мира (включая границы) ((0, 0) - (x, y))
@@ -20,7 +20,7 @@ impl World {
         Self {
             size: (width, height),
             update_time: 166,
-            spawn_time: 2000,
+            spawn_time: 3000,
             snakes: Vec::new(),
             apples: Vec::new(),
         }

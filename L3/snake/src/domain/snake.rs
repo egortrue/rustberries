@@ -1,6 +1,10 @@
+use rand::{thread_rng, Rng};
+use serde::{Deserialize, Serialize};
 use std::collections::LinkedList;
 
-#[derive(Clone)]
+use super::{apple::Apple, Collider};
+
+#[derive(Clone, Serialize, Deserialize)]
 pub enum SnakeDirection {
     UP,
     DOWN,
@@ -8,7 +12,7 @@ pub enum SnakeDirection {
     RIGHT,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Snake {
     pub username: String,
     pub color: [u8; 3],
@@ -18,7 +22,7 @@ pub struct Snake {
 }
 
 impl Snake {
-    pub fn new(username: String, color: [u8; 3], position: (usize, usize)) -> Self {
+    fn new(username: String, color: [u8; 3], position: (usize, usize)) -> Self {
         Self {
             username,
             color,
@@ -30,6 +34,18 @@ impl Snake {
                 (position.0 - 2, position.1),
             ]),
         }
+    }
+
+    pub fn random() -> Self {
+        let mut random = thread_rng();
+        Self::new(
+            format!("user{}", random.gen::<u16>()),
+            [random.gen::<u8>(), random.gen::<u8>(), random.gen::<u8>()],
+            (
+                (random.gen::<usize>() % 10).clamp(2, 10),
+                (random.gen::<usize>() % 10).clamp(2, 10),
+            ),
+        )
     }
 
     pub fn moving(&mut self) {
@@ -51,13 +67,13 @@ impl Snake {
             .push_back(self.positions.back().unwrap().clone())
     }
 
-    pub fn collide_with(&self, object: impl IntoIterator<Item = (usize, usize)>) -> bool {
+    pub fn collide_with(&self, object: Collider) -> bool {
         let head = *self.positions.front().unwrap();
-        for collider in object {
-            if head == collider {
-                return true;
-            }
-        }
-        false
+        let positions = match object {
+            Collider::World(world) => vec![],
+            Collider::Apple(apple) => vec![apple.position],
+            Collider::Snake(snake) => vec![],
+        };
+        positions.contains(&head)
     }
 }
