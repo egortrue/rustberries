@@ -16,5 +16,6 @@ pub struct Task {
 #[derive(Serialize, Deserialize)]
 pub struct TaskResult {
     pub task: Task,
+    pub elapsed: usize,
     pub output: String,
 }
