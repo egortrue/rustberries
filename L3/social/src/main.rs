@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Настройка логирования
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::TRACE)
+        .with_max_level(tracing::Level::INFO)
         .with_thread_ids(true)
         .init();
 
